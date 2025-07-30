@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 
 import requests
+# import base64
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -20,9 +21,27 @@ bot = commands.Bot(command_prefix='!', intents = intents)
 def getID(name):
     url = f"https://api.mojang.com/users/profiles/minecraft/{name}"
     response = requests.get(url)
-    data = response.json()
+    if(response.status_code == 200):
+        data = response.json()
+        return data["id"]
+    
+def getBZ():
+    url = "https://api.hypixel.net/v2/skyblock/bazaar"
+    response = requests.get(url)
+    if(response.status_code == 200):
+        data = response.json()
+        return data
+    else:
+        return -1
 
-    return data["id"]
+# def getImage(name):
+#     url = f"https://api.hypixel.net/v2/resources/skyblock/items"
+#     response = requests.get(url)
+#     if(response.status_code == 200):
+#         data = response.json()
+#         image = data[name]["value"]
+#         image = image.replace("\u003d", "")
+#         image = base64.b64decode(image)
 
 @bot.event
 async def on_ready():
@@ -46,19 +65,43 @@ async def profile(ctx, *, msg):
 
 @bot.command()
 async def bz(ctx, *, msg):
-    url = "https://api.hypixel.net/v2/skyblock/bazaar"
-    response = requests.get(url)
-    if(response.status_code == 200):
+    if(getBZ() == -1):
+        await ctx.send("Error: Invalid Input")
+    else:
         item = msg.upper()
         item = item.replace(' ', '_')
-        data = response.json()
+        data = getBZ()
 
         ii = data["products"][item]
         
         embed = discord.Embed(title = f"{item}", description = f"Insta-Buy: {round(ii["quick_status"]["buyPrice"], 2)}\nSell Order: {round(ii["quick_status"]["sellPrice"], 2)}")
         await ctx.send(embed = embed)
-    else:
+
+@bot.command()
+async def flips(ctx):
+    if(getBZ() == -1):
         await ctx.send("Error: Invalid Input")
+    else:
+        desc = ""
+        data = getBZ()
+        for item in data["products"]:
+            if "ENCHANTMENT" in item and "1" in item and f"{item[:-2]}_5" in data["products"]:
+                ii = data["products"][item]
+                # buy = round(ii["quick_status"]["buyPrice"], 2)
+                sell = round(ii["quick_status"]["sellPrice"], 2)
+
+                t5price = data["products"][f"{item[:-2]}_5"]["quick_status"]["buyPrice"]
+
+                if(t5price < 1000000):
+                    continue
+
+                if((sell * 16)/t5price < 0.9):
+                    desc += f"Item: {item} \nProfit: {round(t5price - sell * 16)}\n\n"
+
+        embed = discord.Embed(title = "Flips", description = desc)
+        await ctx.send(embed = embed)
+        
+
 
     
 
